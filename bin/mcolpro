@@ -1,0 +1,70 @@
+#!/usr/bin/perl -w
+use strict;
+
+use Pod::Usage;
+use Getopt::Long;
+
+use FindBin qw($Bin);
+
+use lib "$Bin/../lib";
+use Collect;
+use Process;
+use Util::PID;
+
+$| ++;
+
+=head1 SYNOPSIS
+
+ $exe col_conf --collect
+
+ $exe pro_conf --process
+
+ $exe col_conf --collect -t
+
+ $exe pro_conf --process -t
+
+=cut
+
+my %pod_param = ( -input => __FILE__, -output => \*STDERR );
+
+my ( $test, $collect, $process );
+GetOptions
+(
+    "test"    => \$test,
+    "collect" => \$collect,
+    "process" => \$process,
+) or Pod::Usage::pod2usage( %pod_param );
+
+Pod::Usage::pod2usage( %pod_param ) unless @ARGV && ( $collect || $process );
+Pod::Usage::pod2usage( %pod_param ) if $collect && $process;
+
+die "chdir $Bin/../: $!" unless chdir "$Bin/../";
+
+my $name = $ARGV[0];
+
+if( $collect )
+{
+    my $collect = Collect->new
+    (
+        colconf => File::Spec->join( "conf", $name ),
+        config   => "config.yaml",
+    );
+    
+    die "already running.\n" unless $test ||
+        PID->new( File::Spec->join( 'pid', $name ) )->lock();
+    
+    $collect->run() unless $test;
+}
+elsif( $process )
+{
+    my $process = Process->new
+    (
+        event => File::Spec->join( 'conf', $name ),
+        config    => 'config.yaml',
+    );
+    
+    die "already running.\n" unless $test || 
+        PID->new( File::Spec->join( 'pid',$name ) )->lock();
+    
+    $process->run() unless $test;   
+}

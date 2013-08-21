@@ -1,0 +1,29 @@
+#!/usr/bin/perl -w
+
+use FindBin qw($Bin);
+
+use lib "$Bin/../lib";
+use SqlBase;
+
+my $conf = SqlBase::conf_check( "$Bin/../config.yaml" );
+my $sqlbase = SqlBase->new( $conf );
+
+my %sql =
+(
+    record => "CREATE TABLE `%s` ( `id` int(64) NOT NULL AUTO_INCREMENT, `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, `type` varchar(200) NOT NULL, `cluster` varchar(200) NOT NULL, `node` varchar(200) NOT NULL, `detail` varchar(500) NOT NULL, `label` varchar(200) NOT NULL, `level` int(16) NOT NULL DEFAULT '0', PRIMARY KEY (`id`) )",
+
+    report => "CREATE TABLE `%s` ( `id` int(64) NOT NULL AUTO_INCREMENT, `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, `name` varchar(200) NOT NULL, `cluster` varchar(200) NOT NULL, `node` text NOT NULL, `content` text, `receiver` text NOT NULL, `rid` text, `remark` text DEFAULT NULL, PRIMARY KEY (`id`) )",
+
+    exclude => "CREATE TABLE `%s` ( `id` int(64) NOT NULL AUTO_INCREMENT, `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, `cluster` varchar(200) NOT NULL, `node` varchar(200) NOT NULL, `expire` int(64) NOT NULL, `user` varchar(200) NOT NULL, PRIMARY KEY (`id`) )",
+);
+
+## create table
+unless(
+defined $sqlbase->dbquery( sprintf( $sql{record}, $conf->{record} ) )
+&& defined $sqlbase->dbquery( sprintf( $sql{report}, $conf->{report} ) )
+&& defined $sqlbase->dbquery( sprintf( $sql{exclude}, $conf->{exclude} ) ) )
+{
+    print "init db failed.\n"
+}
+
+$sqlbase->close();

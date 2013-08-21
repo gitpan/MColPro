@@ -1,0 +1,43 @@
+#!/#perl plugin/foo
+
+use strict;
+use Data::Dumper;
+
+return sub
+{
+    my %param = @_;
+    my $batch = $param{batch};
+    my $cache = $param{cache};
+    my $log   = $param{log};
+    my $type  = $param{type};
+    my $result = [];
+
+    &$log( "plugin begin" );
+
+    for my $target ( @$batch )
+    {
+        &$log( Dumper( $target ) );
+        if( $target->{nodes} )
+        {
+            ## process nodes standalone 
+        }
+        else
+        {
+            ## process nodes in $target->{cluster}
+        }
+
+        ## record errors for report
+        push @$result, +{
+            type => $type,
+            cluster => $target->{cluster},
+            node => 'nodeA',
+            detail => 'some errors happened',
+            label => 'down',
+            level => 0
+        };
+    }
+
+    &$log( "plugin done" );
+
+    return $result;
+}

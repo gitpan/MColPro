@@ -1,0 +1,11 @@
+#!/#perl plugin/report_sms
+
+use strict;
+use Data::Dumper;
+
+return sub
+{
+    my %param = @_;
+
+    print Dumper( \%param );
+}

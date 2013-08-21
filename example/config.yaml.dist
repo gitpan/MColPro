@@ -1,0 +1,14 @@
+---
+
+## mysql 
+hostname: "127.0.0.1"
+database: mcolpro
+user: foo
+password: "***"
+record: record
+report: report
+exclude: exclude
+
+## report plugin
+sms: plugin/report_sms
+email: plugin/report_email
