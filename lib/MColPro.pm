@@ -13,7 +13,7 @@ Version 1.10
 
 =cut
 
-our $VERSION = '1.10';
+our $VERSION = '1.11';
 
 =head1 AUTHOR
 

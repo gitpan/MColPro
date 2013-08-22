@@ -2,7 +2,7 @@ package Logger;
 
 =head1 NAME
 
-Util::Logger - logger
+Logger - logger
 
 =cut
 

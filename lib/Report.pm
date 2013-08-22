@@ -1,5 +1,11 @@
 package Report;
 
+=head1 NAME
+
+Report - Report warning to contacts
+
+=cut
+
 use warnings;
 use strict;
 

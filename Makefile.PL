@@ -15,6 +15,7 @@ WriteMakefile(
       : ()),
     PL_FILES            => {},
     PREREQ_PM => {
+        'DynGig::Range::String' => 1.00,
         'YAML::XS'    =>  0.38,
         'Net::MySQL'  =>  0.11,
     },

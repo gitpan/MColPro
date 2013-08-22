@@ -19,7 +19,6 @@ use Time::HiRes qw( time sleep alarm stat );
 use lib 'lib';
 use Util::Logger;
 use Util::Plugin;
-use Level;
 use SqlBase;
 use Record;
 use Exclude;
@@ -101,7 +100,7 @@ sub run
                     node => threads->tid(),
                     detail => $@,
                     label => "threads error",
-                    level => $Level::Thread, 
+                    level => -1, 
                 } if $@;
 
                 $result = undef unless ( @$result );

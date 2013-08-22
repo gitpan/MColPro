@@ -2,7 +2,7 @@ package Exclude;
 
 =head1 NAME
 
-Data::Exclude - mysql operating for excluding
+Exclude - mysql operating for excluding
 
 =cut
 

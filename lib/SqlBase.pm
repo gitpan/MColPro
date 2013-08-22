@@ -2,7 +2,7 @@ package SqlBase;
 
 =head1 NAME
 
-Data::Data - Base for mysql operating
+SqlBase - Base for mysql operating
 
 =cut
 
