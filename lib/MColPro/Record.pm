@@ -1,8 +1,8 @@
-package Record;
+package MColPro::Record;
 
 =head1 NAME
 
-Record - mysql operating for recording 
+ MColPro::Record - mysql operating for recording 
 
 =cut
 

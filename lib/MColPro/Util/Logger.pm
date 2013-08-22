@@ -1,8 +1,8 @@
-package Logger;
+package MColPro::Util::Logger;
 
 =head1 NAME
 
-Logger - logger
+ MColPro::Util::Logger - logger
 
 =cut
 

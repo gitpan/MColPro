@@ -1,8 +1,8 @@
-package PID;
+package MColPro::Util::PID;
 
 =head1 NAME
 
-PID - lock file for record pid
+ MColPro::Util::PID - lock file for record pid
 
 =cut
 

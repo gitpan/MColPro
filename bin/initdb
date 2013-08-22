@@ -3,10 +3,10 @@
 use FindBin qw($Bin);
 
 use lib "$Bin/../lib";
-use SqlBase;
+use MColPro::SqlBase;
 
-my $conf = SqlBase::conf_check( "$Bin/../config.yaml" );
-my $sqlbase = SqlBase->new( $conf );
+my $conf = MColPro::SqlBase::conf_check( "$Bin/../config.yaml" );
+my $sqlbase = MColPro::SqlBase->new( $conf );
 
 my %sql =
 (

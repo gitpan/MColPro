@@ -1,8 +1,8 @@
-package Exclude;
+package MColPro::Exclude;
 
 =head1 NAME
 
-Exclude - mysql operating for excluding
+ MColPro::Exclude - mysql operating for excluding
 
 =cut
 

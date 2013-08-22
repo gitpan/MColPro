@@ -1,4 +1,4 @@
-package Collect;
+package MColPro::Collect;
 
 =head1 NAME
 
@@ -16,14 +16,13 @@ use Thread::Semaphore;
 use Thread::Queue;
 use Time::HiRes qw( time sleep alarm stat );
 
-use lib 'lib';
-use Util::Logger;
-use Util::Plugin;
-use SqlBase;
-use Record;
-use Exclude;
-use Collect::Conf;
-use Collect::Batch;
+use MColPro::Util::Logger;
+use MColPro::Util::Plugin;
+use MColPro::SqlBase;
+use MColPro::Record;
+use MColPro::Exclude;
+use MColPro::Collect::Conf;
+use MColPro::Collect::Batch;
 
 sub new
 {
@@ -33,21 +32,21 @@ sub new
     confess "invaild conf" 
         unless $param{colconf} && $param{config};
 
-    $self{conf} = Collect::Conf->new( $param{colconf} );
+    $self{conf} = MColPro::Collect::Conf->new( $param{colconf} );
     $self{type} = $self{conf}{type};
 
     ## db
-    $self{config} = SqlBase::conf_check( $param{config} );
+    $self{config} = MColPro::SqlBase::conf_check( $param{config} );
 
-    $self{batch} = Collect::Batch::batch
+    $self{batch} = MColPro::Collect::Batch::batch
     ( 
         $self{conf}{target},
         $self{conf}{thread}
     );
 
-    $self{plugin} = Plugin->new( $self{conf}{plugin} );
+    $self{plugin} = MColPro::Util::Plugin->new( $self{conf}{plugin} );
 
-    $self{log} = Logger->new( \*STDERR );
+    $self{log} = MColPro::Util::Logger->new( \*STDERR );
 
     bless \%self, ref $class || $class;
 }
@@ -169,9 +168,9 @@ sub run
         if( @result )
         {
             ## insert into mysql
-            my $ms = SqlBase->new( $self->{config} );
-            my $data = Record->new( $self->{config}, $ms );
-            my $exclude = Exclude->new( $self->{config}, $ms );
+            my $ms = MColPro::SqlBase->new( $self->{config} );
+            my $data = MColPro::Record->new( $self->{config}, $ms );
+            my $exclude = MColPro::Exclude->new( $self->{config}, $ms );
             my $exclude_hash = $exclude->dump( );
             for my $result ( @result )
             {

@@ -1,8 +1,8 @@
-package Report;
+package MColPro::Report;
 
 =head1 NAME
 
-Report - Report warning to contacts
+ MColPro::Report - Report warning to contacts
 
 =cut
 

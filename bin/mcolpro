@@ -7,9 +7,9 @@ use Getopt::Long;
 use FindBin qw($Bin);
 
 use lib "$Bin/../lib";
-use Collect;
-use Process;
-use Util::PID;
+use MColPro::Collect;
+use MColPro::Process;
+use MColPro::Util::PID;
 
 $| ++;
 
@@ -44,27 +44,27 @@ my $name = $ARGV[0];
 
 if( $collect )
 {
-    my $collect = Collect->new
+    my $collect = MColPro::Collect->new
     (
         colconf => File::Spec->join( "conf", $name ),
         config   => "config.yaml",
     );
     
     die "already running.\n" unless $test ||
-        PID->new( File::Spec->join( 'pid', $name ) )->lock();
+        MColPro::Util::PID->new( File::Spec->join( 'pid', $name ) )->lock();
     
     $collect->run() unless $test;
 }
 elsif( $process )
 {
-    my $process = Process->new
+    my $process = MColPro::Process->new
     (
         event => File::Spec->join( 'conf', $name ),
         config    => 'config.yaml',
     );
     
     die "already running.\n" unless $test || 
-        PID->new( File::Spec->join( 'pid',$name ) )->lock();
+        MColPro::Util::PID->new( File::Spec->join( 'pid',$name ) )->lock();
     
     $process->run() unless $test;   
 }

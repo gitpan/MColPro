@@ -1,8 +1,8 @@
-package Collect::Batch;
+package MColPro::Collect::Batch;
 
 =head1 NAME
 
-Collect::Batch - Batch targets
+MColPro::Collect::Batch - Batch targets
 
 =cut
 

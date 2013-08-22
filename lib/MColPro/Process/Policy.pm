@@ -1,8 +1,8 @@
-package Process::Policy;
+package MColPro::Process::Policy;
 
 =head1 NAME
 
-Process::Policy - parse report policy
+ MColPro::Process::Policy - parse report policy
 
 =cut
 
@@ -12,9 +12,6 @@ use warnings;
 use YAML::XS;
 use POSIX qw( INT_MAX );
 use Carp;
-
-use lib 'lib';
-use Util::TimeHelper;
 
 sub parse
 {

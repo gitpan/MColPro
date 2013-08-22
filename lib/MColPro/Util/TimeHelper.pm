@@ -1,8 +1,8 @@
-package TimeHelper;
+package MColPro::Util::TimeHelper;
 
 =head1 NAME
 
-TimeHelper - time expressions
+ MColPro::Util::TimeHelper - time expressions
 
 =cut
 

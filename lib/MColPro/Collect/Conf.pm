@@ -1,8 +1,8 @@
-package Collect::Conf;
+package MColPro::Collect::Conf;
 
 =head1 NAME
 
-Collect::Conf - parse collect configuration
+MColPro::Collect::Conf - parse collect configuration
 
 =cut
 
@@ -11,7 +11,7 @@ use warnings;
 
 use Carp;
 use YAML::XS;
-use Util::TimeHelper;
+use MColPro::Util::TimeHelper;
 
 our @PARAM = qw( target plugin type );
 our %PARAM = ( thread => 1, interval => 0 );
@@ -43,8 +43,8 @@ sub check
     my $self = shift;
     map { die "$_ not defined" if ! $self->{$_} } @PARAM;
     map { $self->{$_} ||= $PARAM{$_} } keys %PARAM;
-    $self->{interval} = TimeHelper::rel2sec( $self->{interval} );
-    $self->{timeout} = TimeHelper::rel2sec( $self->{interval} / 2 );
+    $self->{interval} = MColPro::Util::TimeHelper::rel2sec( $self->{interval} );
+    $self->{timeout} = MColPro::Util::TimeHelper::rel2sec( $self->{interval} / 2 );
 }
 
 1;

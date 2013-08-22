@@ -1,8 +1,8 @@
-package SqlBase;
+package MColPro::SqlBase;
 
 =head1 NAME
 
-SqlBase - Base for mysql operating
+ MColPro::SqlBase - Base for mysql operating
 
 =cut
 

@@ -1,8 +1,8 @@
-package Process::Event;
+package MColPro::Process::Event;
 
 =head1 NAME
 
-Process::Event - parse process configuration
+ MColPro::Process::Event - parse process configuration
 
 =cut
 
@@ -12,9 +12,8 @@ use warnings;
 use YAML::XS;
 use Carp;
 
-use lib 'lib';
-use Util::TimeHelper;
-use Process::Policy;
+use MColPro::Util::TimeHelper;
+use MColPro::Process::Policy;
 
 sub new
 {
@@ -40,7 +39,8 @@ sub _parse
             if $namecheck{$event->{name}};
         $namecheck{$event->{name}} = 1;
 
-        $event->{interval} = TimeHelper::rel2sec( $event->{interval} );
+        $event->{interval} = 
+            MColPro::Util::TimeHelper::rel2sec( $event->{interval} );
 
         if( $event->{condition} )
         {
@@ -74,7 +74,7 @@ sub _parse
         {
             while( my ( $c, $p ) = each %{ $event->{policy} } )
             {
-                $event->{policy}->{$c} = Process::Policy::parse( $p );
+                $event->{policy}->{$c} = MColPro::Process::Policy::parse( $p );
             }
         }
     }

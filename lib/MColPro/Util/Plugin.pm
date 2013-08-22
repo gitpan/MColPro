@@ -1,8 +1,8 @@
-package Plugin;
+package MColPro::Util::Plugin;
 
 =head1 NAME
 
-Plugin - Load plugin code
+ MColPro::Util::Plugin - Load plugin code
 
 =cut
 

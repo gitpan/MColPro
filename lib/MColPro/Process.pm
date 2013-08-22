@@ -1,8 +1,8 @@
-package Process;
+package MColPro::Process;
 
 =head1 NAME
 
-Process - Data process and report
+ MColPro::Process - Data process and report
 
 =cut
 
@@ -19,15 +19,14 @@ use Time::HiRes qw( time sleep alarm stat );
 
 use DynGig::Range::String;
 
-use lib 'lib';
-use Util::Logger;
-use Util::Plugin;
-use Report;
-use SqlBase;
-use Record;
-use Exclude;
-use Process::Policy;
-use Process::Event;
+use MColPro::Util::Logger;
+use MColPro::Util::Plugin;
+use MColPro::Report;
+use MColPro::SqlBase;
+use MColPro::Record;
+use MColPro::Exclude;
+use MColPro::Process::Policy;
+use MColPro::Process::Event;
 
 sub new
 {
@@ -37,16 +36,16 @@ sub new
     confess "invaild conf" 
         unless $conf{event} && $conf{config};
 
-    $self{event} = Process::Event->new( $conf{event} );
-    $self{log} = Logger->new( \*STDERR );
+    $self{event} = MColPro::Process::Event->new( $conf{event} );
+    $self{log} = MColPro::Util::Logger->new( \*STDERR );
 
     ## db
-    $self{config} = SqlBase::conf_check( $conf{config} );
+    $self{config} = MColPro::SqlBase::conf_check( $conf{config} );
 
     ## report
-    $self{config}{sms} = Plugin->new( $self{config}{sms} )
+    $self{config}{sms} = MColPro::Util::Plugin->new( $self{config}{sms} )
         if $self{config}{sms};
-    $self{config}{email} = Plugin->new( $self{config}{email} )
+    $self{config}{email} = MColPro::Util::Plugin->new( $self{config}{email} )
         if $self{config}{email};
 
     bless \%self, ref $class || $class;
@@ -73,8 +72,8 @@ sub run
     {
         push @thread, threads::async
         {
-            my $tmp_ms = SqlBase->new( $self->{config} );
-            my $init_p = Record->new( $self->{config}, $tmp_ms );
+            my $tmp_ms = MColPro::SqlBase->new( $self->{config} );
+            my $init_p = MColPro::Record->new( $self->{config}, $tmp_ms );
             my $position = $init_p->init_position( $event->{name}
                 , $event->{interval} );
             $tmp_ms->close();
@@ -89,8 +88,8 @@ sub run
 
                 eval
                 {
-                    my $ms = SqlBase->new( $self->{config} );
-                    my $recorder = Record->new( $self->{config}, $ms );
+                    my $ms = MColPro::SqlBase->new( $self->{config} );
+                    my $recorder = MColPro::Record->new( $self->{config}, $ms );
                     $log->say( $event->{name} );
 
                     my ( $result, $new_p ) = $recorder->dump
@@ -120,7 +119,7 @@ sub run
 
                             if( $message && %$message )
                             {
-                                my $reporter = Report->new( $self->{config}, $ms );
+                                my $reporter = MColPro::Report->new( $self->{config}, $ms );
                                 $reporter->report( $event->{name}, $message );
                             }
                         }
