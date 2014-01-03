@@ -10,19 +10,27 @@ use strict;
 use warnings;
 
 use Carp;
-use threads;
+use threads ('yield',
+             'stack_size' => 1096*4096,);
 use threads::shared;
 use Thread::Semaphore;
 use Thread::Queue;
+use Sys::Hostname;
 use Time::HiRes qw( time sleep alarm stat );
+use DynGig::Range::Cluster;
 
 use MColPro::Util::Logger;
 use MColPro::Util::Plugin;
+use MColPro::Util::Serial qw( serial unserial deepcopy );
 use MColPro::SqlBase;
 use MColPro::Record;
 use MColPro::Exclude;
-use MColPro::Collect::Conf;
-use MColPro::Collect::Batch;
+use MColPro::CollectConf;
+
+use MColPro::Platform;
+use MColPro::Claim;
+use MColPro::Dispatch;
+use Data::Dumper;
 
 sub new
 {
@@ -32,19 +40,23 @@ sub new
     confess "invaild conf" 
         unless $param{colconf} && $param{config};
 
-    $self{conf} = MColPro::Collect::Conf->new( $param{colconf} );
+    $self{conf} = MColPro::CollectConf->new( $param{colconf} );
     $self{type} = $self{conf}{type};
+    $self{confname} =$param{colconf};
 
     ## db
     $self{config} = MColPro::SqlBase::conf_check( $param{config} );
 
-    $self{batch} = MColPro::Collect::Batch::batch
-    ( 
-        $self{conf}{target},
-        $self{conf}{thread}
-    );
+    $self{targets} = $self{conf}->parse();
 
     $self{plugin} = MColPro::Util::Plugin->new( $self{conf}{plugin} );
+
+    $self{waitq} = [];
+    $self{disp} = Thread::Queue->new();
+    $self{taskcount} = 0;
+
+    ## locate
+    $self{locate} = hostname;
 
     $self{log} = MColPro::Util::Logger->new( \*STDERR );
 
@@ -55,138 +67,210 @@ sub run
 {
     my $self = shift;
 
-    my $interval = $self->{conf}{interval};
-    my $timeout = $self->{conf}{timeout};
-    my %thread;
-    my $finishq = Thread::Queue->new();
-
     my $log = $self->{log};
     my $logsub = sub { $log->say( @_ ) };
+    $self->{heartbeat} = time;
 
-    for my $batch ( @{ $self->{batch} } )
+    my $run_plugin = sub
     {
-        my $sem = Thread::Semaphore->new(0); 
+        my %param = @_;
 
-        my $thread = threads::async
+        my $tmphc = MColPro::SqlBase->new( $self->{config}{hostconfig} );
+        my $hc = MColPro::Claim->new(
+            { claim => $self->{config}{hostconfig}{claim} }, $tmphc );
+
+        my $result = $self->{plugin}( %param, hc => $hc );
+
+        if ( $result && @$result )
         {
-            local $SIG{KILL} = sub{ threads->exit(); };
-            my %cache;
-            while(1)
+            my @result = @$result;
+            $result = undef;
+
+            my $task = 
             {
+                plugin => 'record_result',
+                start  => $param{RECORD},
+                due    => $param{RECORD} + 25,
+                param  => { result => \@result },
+            };
 
-                while(1)
-                {
-                    last if $sem->down_nb();
-                    sleep 0.5;
-                }
+            $self->{disp}->enqueue( [ $task->{start}, serial( $task ) ] );
+        }
 
-                my $result = [];
-                eval
-                {
-                    local $SIG{ALRM} = sub{ die "timeout" };
-                    $result = $self->{plugin}
-                    ( 
-                        batch => $batch, 
-                        log => $logsub, 
-                        type => $self->{type},
-                        cache => \%cache 
-                    );
-                };
-
-                push @$result, +{
-                    type => "Collect",
-                    cluster => $self->{type},
-                    node => threads->tid(),
-                    detail => $@,
-                    label => "threads error",
-                    level => -1, 
-                } if $@;
-
-                $result = undef unless ( @$result );
-
-                $log->say( "Collect: thread erorr $@" ) if $@;
-
-                $finishq->enqueue( threads->tid(), $result );
-            }
-        };
-
-        $thread{$thread->tid()} = { thread => $thread, trigger => $sem };
-    }
-
-    $SIG{TERM} = $SIG{INT} = sub
-    {
-        $log->say( 'Collect: killed.' );
-        map
-        {
-            $thread{$_}->{thread}->kill( 'SIGKILL' )->detach();
-        } keys %thread;
-
-        exit 1;
+        return undef;
     };
 
-
-    $log->say( 'collect: started.' );
-
-    for ( my $now; $now = time; )
+    my $record_result = sub
     {
-        $log->say( 'collect: loop start.' );
-        my ( %running, @result );
+        my %param = @_;
 
-        map
+        my $ms = MColPro::SqlBase->new( $self->{config} );
+        my $data = MColPro::Record->new( $self->{config}, $ms );
+        my $exclude = MColPro::Exclude->new( $self->{config}, $ms );
+        my $exclude_hash = $exclude->dump( ) || {};
+
+        for my $result ( @{ $param{result} } )
+        {   
+            next if( ( $exclude_hash->{cluster} &&
+                $exclude_hash->{cluster}{$result->{cluster}} ) ||
+                ( $exclude_hash->{$result->{cluster}} &&
+                $exclude_hash->{$result->{cluster}}{$result->{node}} ) );
+           
+            $result->{locate} = $self->{locate};
+
+            $data->insert( %$result );
+        }
+
+        $ms->close();
+    };
+
+    my $plat = MColPro::Platform->new (
+        plugin =>
         {
-            die "some threads dead" unless $thread{$_}->{thread}->is_running();
-            $thread{$_}->{trigger}->up();
-            $running{$_} = 1;
-        } keys %thread;
+            run_plugin => $run_plugin,
+            record_result => $record_result,
+        } );
+    $plat->prepare();
 
-        while( 1 )
+    my $taskq = $plat->taskq();
+    my $feedbackq = $plat->feedbackq();
+    my $disp = $self->{disp};
+
+    ## dispatch thread
+    threads::async { MColPro::Dispatch::dispatch( $disp, $taskq ) };
+    
+    $log->say( '###########collect: started.###############' );
+
+    ## init task
+    $self->range();
+    for my $i ( @{ $self->{targets} } )
+    {
+        $self->refresh_task(
+            { plugin => 'run_plugin', param => $i, feedback => 1 },
+            rand( $self->{conf}{interval} ) );
+    }
+    my $conftaskcount = @{ $self->{targets} };
+
+    for( my $now; $now = time; )
+    {
+        while( my $fdb = $feedbackq->dequeue_nb() )
         {
-            while( my ( $done, $result ) = $finishq->dequeue_nb( 2 ) )
+            $self->{taskcount} --;
+            $self->refresh_task( unserial( $fdb ) );
+        }
+
+        $plat->ask();
+
+        $self->range( $now );
+
+        if( $now > $self->{heartbeat} )
+        {
+            my $task = 
             {
-                delete $running{$done};
-                push @result, $result if $result;
-            }
+                plugin => 'record_result',
+                start  => $now + $self->{conf}{interval},
+                due    => $now + $self->{conf}{interval} + 25,
+                param  =>{ result => [ {
+                    type => 'MWHB',
+                    cluster => 'MWatcher',
+                    node => $self->{locate},
+                    detail => $self->{confname}.": "
+                        .$self->{taskcount}."/".$conftaskcount
+                        .", ".$plat->cstring(),
+                    label => $self->{confname},
+                    level => '0',
+                    locate => $self->{locate},
+                } ] },
+            };
+            $self->{disp}->enqueue( [ $task->{start}, serial( $task ) ] );
+            $self->{heartbeat} += $self->{config}{heartbeat};
+        }
 
-            last unless %running;
+        sleep 1;   
+    }
+}
 
-            if ( time - $now > $timeout ) 
+sub range
+{
+    my ( $self, $now ) = @_;
+
+    if( ! defined $self->{range} || $self->{range}{due} < $now )
+    {
+        my $c = 2;
+        while ( $c-- )
+        {
+            my $range = eval
             {
-                map
-                { 
-                    $thread{$_}->{thread}->kill( 'SIGALRM' );
-                } keys %running;
+                DynGig::Range::Cluster->setenv (   
+                    server => $self->{config}{range}{server}
+                        || 'localhost:65431',
+                    timeout => $self->{config}{range}{timeout} || 30,
+                ); 
+            };
+            if ( !$@ && $range )
+            {
+                $self->{range}{range} = $range;
+                last;
             }
-
+            else
+            {
+                warn "get range error $@";
+            }
             sleep 0.5;
         }
 
-        ## sleep sometime until $interval * 3/4 from $now
-        my $due = $interval * 3 / 4 + $now - time;
-        sleep $due if $due > 0;
+        print "range once\n";
 
-        $now = time;
-        if( @result )
+        $self->{range}{due} = time + 60;
+    }
+}
+
+sub refresh_task
+{
+    my ( $self, $i, $stime ) = @_;
+
+    if ( defined $i->{start} && defined $i->{due} )
+    {
+        $i->{start} = $i->{start} + $self->{conf}{interval};
+        $i->{due} = $i->{due} + $self->{conf}{interval};
+    }
+    else
+    {
+        $i->{start} = time + $stime;
+        $i->{due} = $i->{start} + $self->{conf}{timeout};
+    }
+    $i->{param}{RECORD} = $i->{due};
+
+    my $j = $i->{param};
+    if ( $j->{range} )
+    {
+        $j->{range} =~ s/\s//g;
+        $j->{range} =~ /(.+?)\((.+?)[:=%](.+?)\)/;
+
+        my @nodes = $self->{range}{range}->expand( $j->{range} );
+        my $first = 1;
+
+        while ( 1 )
         {
-            ## insert into mysql
-            my $ms = MColPro::SqlBase->new( $self->{config} );
-            my $data = MColPro::Record->new( $self->{config}, $ms );
-            my $exclude = MColPro::Exclude->new( $self->{config}, $ms );
-            my $exclude_hash = $exclude->dump( );
-            for my $result ( @result )
-            {
-                map
-                {
-                    $data->insert( %$_ )
-                        unless( $exclude_hash->{cluster}{$_->{cluster}}
-                            || $exclude_hash->{$_->{cluster}}{$_->{node}} );
-                } @$result;
-            }
-            $ms->close();
-        }
-        $log->say( 'collect: loop done.' );
+            delete $j->{targets};
+            $j->{targets}{nodes} = [ splice( @nodes, 0 ,
+                $self->{conf}{maxnodes} || 60 ) ];
+            $j->{targets}{cluster} = $2;
+            $j->{targets}{table} = $1;
+            $i->{feedback} = $first;
 
-        $due = $interval * 1 / 4 + $now - time;
-        sleep $due if $due > 0;
+            $self->{disp}->enqueue( [ $i->{start}, serial( $i ) ] );
+
+            $self->{taskcount} += $first;
+            $first = 0;
+
+            last if @nodes == 0;
+        }
+    }
+    else
+    {
+        $self->{disp}->enqueue( [ $i->{start}, serial( $i ) ] );
+        $self->{taskcount} += 1;
     }
 }
 

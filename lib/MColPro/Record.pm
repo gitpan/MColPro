@@ -24,7 +24,7 @@ sub new
 
     my $i = 0;
     map { $class{column}{$_} = $i++ }
-        qw( id time type cluster node detail label level );
+        qw( id time type cluster node detail label level locate );
 
     bless \%class, ref $this || $this;
 }
@@ -92,6 +92,8 @@ sub dump
     my %result;
 
     my $last = $this->lastid();
+
+    return ( undef, $position ) unless defined $last;
 
     return ( undef, $last ) unless defined $name;
     return ( undef, $last ) unless defined $position;

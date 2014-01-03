@@ -12,6 +12,7 @@ use warnings;
 use YAML::XS;
 use POSIX qw( INT_MAX );
 use Carp;
+use DynGig::Range::String;
 
 sub parse
 {
@@ -50,6 +51,41 @@ sub parse
         {
             $_->{reciver} = [];
         }
+
+        if( $_->{time} )
+        {
+            if( $_->{time} =~ /(\d{1,2}:\d{2}~\d{1,2}:\d{2})({\d~\d})?/ )
+            {
+                $_->{time} = {};
+
+                for my $t ( split '~', $1 )
+                {
+                    $t = '0'.$t if $t =~ /^\d{1}:/;
+                    push @{ $_->{time}{hm} }, $t;
+                }
+                $_->{time}{hm} = [ sort @{ $_->{time}{hm} } ];
+
+                if( defined $2 )
+                {
+                    my @week = DynGig::Range::String->expand( $2 );
+                    croak "invaild policy time config" unless @week;
+                    for my $t ( @week )
+                    {
+                        croak "invaild policy time config" if $t !~ /[0-6]/;
+                        $_->{time}{wday}{$t} = 1;
+                    }
+                }
+                else
+                {
+                    $_->{time}{wday} = map { $_ => 1 } ( 0..6 );
+                }
+            }
+            else
+            {
+                confess "invaild policy time range";
+            }
+        }
+
         push @{ $policy{stair} }, $_;
     } @$policy;
 

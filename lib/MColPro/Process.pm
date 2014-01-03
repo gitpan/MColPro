@@ -16,6 +16,7 @@ use YAML::XS;
 use threads;
 use threads::shared;
 use Time::HiRes qw( time sleep alarm stat );
+use POSIX qw( strftime );
 
 use DynGig::Range::String;
 
@@ -86,6 +87,8 @@ sub run
 
                 my $start = time;
 
+                $log->say( "postion: $position" );
+
                 eval
                 {
                     my $ms = MColPro::SqlBase->new( $self->{config} );
@@ -155,6 +158,10 @@ sub _process
     my ( $event, $result ) = @_;
     my %notice;
 
+    ## hour::min and week day
+    my $hm = strftime( "%H:%M", localtime(time) );
+    my ( undef,undef,undef,undef,undef,undef,$wday) = localtime(time);
+
     while( my( $cluster, $cinfo ) = each %$result )
     {
         ## combined alarm
@@ -176,26 +183,41 @@ sub _process
         my $cpolicy = $policy->{$cluster} ||= {};
         $cpolicy->{count}++;
         $cpolicy->{last_report} ||= 0;
-        map
+
+        for ( @{ $policy->{stair} } )
         {
+            ## Error次数在报警策略范围内
             if ( $cpolicy->{count} >= $_->{count}[0]
                 && $cpolicy->{count} <= $_->{count}[1] )
             {
+                ## 第一次出现Error 或者 Error次数增长量等于步长
                 if ( $cpolicy->{count} == $_->{count}[0] 
                     || $cpolicy->{count} == $cpolicy->{last_report} + $_->{step} )
                 {
-                    push @{ $notice{$cluster}{contacts} }, @{ $_->{reciver} };
+                    ##更新本次报警对应的Error次数
                     $cpolicy->{last_report} = $cpolicy->{count};
+
+                    ## 是否在报警时间范围内
+                    if( $_->{time} )
+                    {
+                        next unless $_->{time}{wday}{$wday};
+                        next unless $hm ge $_->{time}{hm}[0]
+                            && $hm le $_->{time}{hm}[1];
+                    }
+
+                    ## 报警
+                    push @{ $notice{$cluster}{contacts} }, @{ $_->{reciver} };
                 }
             }
-        } @{ $policy->{stair} };
+        } 
         next unless $notice{$cluster}; ## policy said nothing need report
 
         my %info;
         while( my ( $node, $ninfo ) = each %$cinfo )
         {
             my $label = delete $ninfo->{label};
-            $label = DynGig::Range::String->serial( keys %$label );
+            $label = DynGig::Range::String->serial( map { $_ =~ s/\/{1}/##/g; $_ } keys %$label );
+            $label =~ s/##/\//g;
             push @{ $info{$label}{nodes} }, $node;
             my $id = delete $ninfo->{id};
             push @{ $info{$label}{id} }, $id;

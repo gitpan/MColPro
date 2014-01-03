@@ -8,7 +8,6 @@ package MColPro::SqlBase;
 
 use warnings;
 use strict;
-
 use Carp;
 use YAML::XS;
 

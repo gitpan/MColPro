@@ -10,6 +10,8 @@ use warnings;
 use strict;
 
 use Carp;
+use lib '/devops/tools/lib';
+use Devops::Contacts;
 
 sub new
 {
@@ -20,6 +22,11 @@ sub new
     $class{report} = $conf->{report};
     $class{email} = $conf->{email};
     $class{sms} = $conf->{sms};
+
+    $class{contacts} = Devops::Contacts->new
+    (
+        db => '/devops/tools/var/contacts/contacts.db'
+    );
 
     my $i = 0;
     map { $class{column}{$_} = $i++ }
@@ -56,7 +63,12 @@ sub report
             }
             else
             {
-                warn "Unrecognized contact way: $item";
+                map
+                {
+                    /^\d{11}$/
+                        ? push @{ $contacts->{phone} }, $_
+                        : push @{ $contacts->{mail} }, $_
+                } $this->{contacts}->get_addr( $item );
             }
         }
 
