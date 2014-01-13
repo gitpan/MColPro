@@ -9,7 +9,6 @@ WriteMakefile(
     ABSTRACT_FROM       => 'lib/MColPro.pm',
     PREFIX              => '/opt/MColPro/',
     LIB                 => '$(PREFIX)/lib',
-    EXE_FILES           => [ qw( bin/exclude bin/initdb bin/mcolpro ) ],
     ($ExtUtils::MakeMaker::VERSION >= 6.3002
       ? ('LICENSE'=> 'perl')
       : ()),
